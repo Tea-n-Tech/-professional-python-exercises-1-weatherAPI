@@ -1,3 +1,7 @@
+# ignore secret file
+api_key_open_weather_map.dat
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
