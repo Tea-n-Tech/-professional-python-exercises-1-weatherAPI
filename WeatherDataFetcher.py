@@ -1,101 +1,105 @@
 import os
+import sys
 import datetime
 from typing import Tuple
 from geopy.geocoders import Nominatim
-import urllib.request, json
+import json
+import requests
 
 
-class Weather_Forecast_Fetcher:
+def fetch_weather_data(location_coords: Tuple[int, int], recent_data_available: bool):
     """
-    This class provides 3 days of forecast from an open API for a given location
-    api_key_open_weather_map.dat should contain the api key
-
-    Parameters:
-    ----------
-    city : stry
-      City for which the forcast will be given
-    location_coords : Tuple
-      Latitude and Longitude Coordinates of the location of interest (self.city)
-    api_key : str
-      API Key used for OpenWeatherMap
-
-
+    Fetches data from the url if reload is active or no previous data was stored
     """
 
-    location_coords: Tuple = (0, 0)
-    api_key: str = ""
+    response = requests.get(
+        f"https://api.openweathermap.org/data/2.5/forecast?",
+        params={
+            "lat": location_coords[0],
+            "lon": location_coords[1],
+            "dt": 25,
+            "units": "metric",
+            "appid": api_key,
+        },
+    )
 
-    def __init__(self, api_key: str):
-        """
-        Initializes the class
-        """
-        location_coords_fetcher = Location_Coords_Fetcher()
-        self.location_coords = location_coords_fetcher.location_coords
-        self.city = location_coords_fetcher.city
-        self.api_key: str = api_key
+    file_path_json = os.getcwd() + "/data.json"
+    if not os.path.exists(file_path_json) or not recent_data_available:
+        data = response.json()
+        with open(file_path_json, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    else:
+        with open(file_path_json, "r", encoding="utf-8") as f:
+            data = json.loads(f.read())
 
-    def fetch_weather_data(self, reload=False):
-        """
-        fetches data from the url if reload is active or no previous data was stored
-        """
-        request = (
-            f"https://api.openweathermap.org/data/2.5/"
-            + f"forecast?lat={self.location_coords[0]}&lon={self.location_coords[1]}"
-            + f"&dt=25&units=metric"
-            + f"&appid={self.api_key}"
+    time_to_max_temp = {}
+    time_to_min_temp = {}
+    for _, values in enumerate(data["list"]):
+        timestamp = datetime.datetime.utcfromtimestamp(values["dt"])
+        time_to_max_temp[str(timestamp)] = values["main"]["temp_max"]
+        time_to_min_temp[str(timestamp)] = values["main"]["temp_min"]
+
+    print("Min Temperatures:")
+    print(json.dumps(time_to_min_temp, indent=4))
+    print("Max Temperatures:")
+    print(json.dumps(time_to_max_temp, indent=4))
+
+
+def fetch_location_coords(city: str) -> Tuple[int, int]:
+    geolocator = Nominatim(user_agent="MyApp")
+    location = geolocator.geocode(city)
+    if location is None:
+        print(
+            f"Sorry, your input for the city ({city}) was not found, try again:",
+            file=sys.stderr,
         )
-
-        file_path_json = os.getcwd() + "/data.json"
-        if reload or not os.path.exists(file_path_json):
-            with urllib.request.urlopen(request) as url:
-                data = json.loads(url.read().decode())
-                with open(file_path_json, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=4)
-        else:
-            with open(file_path_json, "r", encoding="utf-8") as f:
-                data = json.loads(f.read())
-
-        for _, values in enumerate(data["list"]):
-            timestamp_utc = values["dt"]
-            timestamp = datetime.datetime.utcfromtimestamp(timestamp_utc)
-            temp_min = values["main"]["temp_min"]
-            temp_max = values["main"]["temp_max"]
-            print(
-                f"On:{timestamp}, the min Temp is: {temp_min} and the max Temp is {temp_max}"
-            )
+        return fetch_location_coords(input("Where do you live?\n-->"))
+    location_coords = (location.latitude, location.longitude)
+    return location_coords
 
 
-class Location_Coords_Fetcher:
-    """
-    Class for getting location coordinates (long and lat) for a given city
-    Parameters
-    ---------
-    city : str
-      Name of the city for the coordinates
-    location_coords : Tuple
-      (lat, long) for the self.city
-    """
+def get_api_key():
 
-    def __init__(self):
-        self.location_coords = self.fetch_location_coords()
+    if "TNT_EX1_OPENWEATHERMAP_API_KEY" not in os.environ:
+        print(
+            "No API Key found in your environment variables. \nPlease look at https://openweathermap.org/api for getting an API key and enter it in the following line:",
+            file=sys.stderr,
+        )
+        os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"] = input(
+            "Please enter your API Key now: \n-->"
+        ).strip()
+    api_key = os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"]
+    if len(api_key) != 32:
+        print(
+            f"Wrong sized API Key inputted (correct length: 32), key found: {api_key}, \nplease look at https://openweathermap.org/api for getting an API key and enter it in the following line:",
+            file=sys.stderr,
+        )
+        os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"] = input(
+            "Please enter your API Key now:\n-->"
+        ).strip()
+        return get_api_key()
+    return api_key
 
-    def fetch_location_coords(self) -> Tuple:
-        # ask user for city
-        self.city = input("Where do you live?\n-->")
-        # city = "Berlin"
-        geolocator = Nominatim(user_agent="MyApp")
-        location = geolocator.geocode(self.city)
-        if location is None:
-            print(
-                f"Sorry, your input for the city ({self.city}) was not found, try again:"
-            )
-            return self.fetch_location_coords()
-        location_coords = (location.latitude, location.longitude)
-        return location_coords
+
+def recent_data_available():
+    file_path_json = os.getcwd() + "/data.json"
+    if not os.path.exists(file_path_json):
+        return True
+    else:
+        with open(file_path_json, "r", encoding="utf-8") as f:
+            data = json.loads(f.read())
+            now_utc_in_s = datetime.datetime.now(datetime.timezone.utc).timestamp()
+            oldest_utc_in_s = data["list"][0]["dt"]
+            # Data is at least one day old
+            if now_utc_in_s - oldest_utc_in_s > 86400:
+                return False
+    return True
 
 
 if __name__ == "__main__":
     with open("api_key_open_weather_map.dat", "r", encoding="utf-8") as f:
         api_key = f.read()
-    forcaster = Weather_Forecast_Fetcher(api_key)
-    forcaster.fetch_weather_data(reload=True)
+    get_api_key()
+    city = input("For which city should the forcast be generated for?\n-->")
+    print(f"Generating forecast for the city: {city}")
+    fetch_weather_data(fetch_location_coords(city), recent_data_available())

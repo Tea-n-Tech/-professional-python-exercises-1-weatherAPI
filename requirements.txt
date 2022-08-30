@@ -1,0 +1,4 @@
+###### Requirements without Version Specifiers ######
+geopy
+requests
+###### Requirements with Version Specifiers ######
