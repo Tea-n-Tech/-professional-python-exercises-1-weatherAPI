@@ -7,9 +7,22 @@ import json
 import requests
 
 
-def fetch_weather_data(location_coords: Tuple[int, int], recent_data_available: bool):
+def fetch_weather_data(
+    location_coords: Tuple[int, int], recent_data_available: bool
+) -> None:
     """
-    Fetches data from the url if reload is active or no previous data was stored
+    Fetches weather data for 25 timepoints from the url if no recent data is available
+    Stores the data in the folder where it is executed for future use.
+
+    Parameters:
+    ---------
+    location_coords : Tuple[int:int]
+      (lat,long) coordinates for the city entered
+    recent_data_available : bool
+      if true, use cached values (load from file)
+      if false, reload from url (requests)
+
+    Returns: None
     """
 
     response = requests.get(
@@ -46,6 +59,20 @@ def fetch_weather_data(location_coords: Tuple[int, int], recent_data_available: 
 
 
 def fetch_location_coords(city: str) -> Tuple[int, int]:
+    """
+    Gets the (lat,long) coordinates of a city name. If the city cannot be found
+    (e.g. invalid user input) the user is asked to input it again.
+    Parameters:
+    ----------
+    city : str
+      Name of the city to get the coordinates for
+
+    Returns:
+    ----------
+    location_coords : Tuple[int:int]
+      (lat,long) coordinates for the city entered
+    """
+
     geolocator = Nominatim(user_agent="MyApp")
     location = geolocator.geocode(city)
     if location is None:
@@ -58,7 +85,14 @@ def fetch_location_coords(city: str) -> Tuple[int, int]:
     return location_coords
 
 
-def get_api_key():
+def get_api_key() -> None:
+    """
+    Checks, if API Key is set as an environment variable. If not, the user is
+    asked to input it in the console. Length checks enabled for the API key. If
+    key has non-valid length (!=32) the user is asked again to enter a valid key
+
+    Returns: None
+    """
 
     if "TNT_EX1_OPENWEATHERMAP_API_KEY" not in os.environ:
         print(
@@ -81,7 +115,14 @@ def get_api_key():
     return api_key
 
 
-def recent_data_available():
+def recent_data_available() -> None:
+    """
+    Checks if recent (=less than one day old) cached data is available.
+    Returns false, if no recent data is available.
+
+    Returns: None
+    """
+
     file_path_json = os.getcwd() + "/data.json"
     if not os.path.exists(file_path_json):
         return True
@@ -97,6 +138,12 @@ def recent_data_available():
 
 
 if __name__ == "__main__":
+    """
+    Main method which fetches first the API key for open weather map.
+    Aks for city name input and outputs json format for a forcast of
+    25 timestamps with at least 3hours apart.
+    """
+
     with open("api_key_open_weather_map.dat", "r", encoding="utf-8") as f:
         api_key = f.read()
     get_api_key()
