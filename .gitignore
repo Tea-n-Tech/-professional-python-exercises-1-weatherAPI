@@ -1,6 +1,5 @@
 # ignore secret file
 data.json
-api_key_open_weather_map.dat
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

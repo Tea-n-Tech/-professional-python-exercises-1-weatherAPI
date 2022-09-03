@@ -4,12 +4,11 @@ import datetime
 from typing import Tuple
 from geopy.geocoders import Nominatim
 import json
+import dotenv
 import requests
 
 
-def fetch_weather_data(
-    location_coords: Tuple[int, int], recent_data_available: bool
-) -> None:
+def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
     """
     Fetches weather data for 25 timepoints from the url if no recent data is available
     Stores the data in the folder where it is executed for future use.
@@ -36,12 +35,35 @@ def fetch_weather_data(
         },
     )
 
+    # Check if fetch_data_from_url is necessary
     file_path_json = os.getcwd() + "/data.json"
-    if not os.path.exists(file_path_json) or not recent_data_available:
+    fetch_data_from_url = False
+    if not os.path.exists(file_path_json):
+        fetch_data_from_url = True
+    else:
+        with open(file_path_json, "r", encoding="utf-8") as f:
+            data = json.loads(f.read())
+            now_utc_in_s = datetime.datetime.now(datetime.timezone.utc).timestamp()
+            oldest_utc_in_s = data["list"][0]["dt"]
+            # Data is more than day old - fetch_data_from_url required
+            if now_utc_in_s - oldest_utc_in_s > 86400:
+                fetch_data_from_url = True
+            # Different location is requested - fetch_data_from_url required
+            lat = data["city"]["coord"]["lat"]
+            lon = data["city"]["coord"]["lon"]
+            threshold = 0.001
+            if abs(lat - location_coords[0]) > threshold:
+                fetch_data_from_url = True
+            if abs(lon - location_coords[1]) > threshold:
+                fetch_data_from_url = True
+
+    if not os.path.exists(file_path_json) or fetch_data_from_url:
+        print("Getting new data from URL", file=sys.stderr)
         data = response.json()
         with open(file_path_json, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
     else:
+        print("Getting new data local file", file=sys.stderr)
         with open(file_path_json, "r", encoding="utf-8") as f:
             data = json.loads(f.read())
 
@@ -52,10 +74,11 @@ def fetch_weather_data(
         time_to_max_temp[str(timestamp)] = values["main"]["temp_max"]
         time_to_min_temp[str(timestamp)] = values["main"]["temp_min"]
 
-    print("Min Temperatures:")
-    print(json.dumps(time_to_min_temp, indent=4))
-    print("Max Temperatures:")
-    print(json.dumps(time_to_max_temp, indent=4))
+    output = {}
+    print("Temperatures: ", file=sys.stderr)
+    output["max_temperatures"] = time_to_max_temp
+    output["min_temperatures"] = time_to_min_temp
+    print(output)
 
 
 def fetch_location_coords(city: str) -> Tuple[int, int]:
@@ -85,14 +108,21 @@ def fetch_location_coords(city: str) -> Tuple[int, int]:
     return location_coords
 
 
-def get_api_key() -> None:
+def get_api_key() -> str:
     """
     Checks, if API Key is set as an environment variable. If not, the user is
     asked to input it in the console. Length checks enabled for the API key. If
-    key has non-valid length (!=32) the user is asked again to enter a valid key
+    key has non-valid length (!=32) the user is asked again to enter a valid key.
+    The key is saved into a local .env file.
 
-    Returns: None
+    Returns:
+    api_key : str
+      API Key for the Open Weather Map
+
     """
+
+    dotenv_file = dotenv.find_dotenv()
+    dotenv.load_dotenv(dotenv_file)
 
     if "TNT_EX1_OPENWEATHERMAP_API_KEY" not in os.environ:
         print(
@@ -112,41 +142,25 @@ def get_api_key() -> None:
             "Please enter your API Key now:\n-->"
         ).strip()
         return get_api_key()
+
+    dotenv.set_key(
+        dotenv_file, "TNT_EX1_OPENWEATHERMAP_API_KEY", api_key
+    )  # save the API key to .env file
     return api_key
 
 
-def recent_data_available() -> None:
-    """
-    Checks if recent (=less than one day old) cached data is available.
-    Returns false, if no recent data is available.
-
-    Returns: None
-    """
-
-    file_path_json = os.getcwd() + "/data.json"
-    if not os.path.exists(file_path_json):
-        return True
-    else:
-        with open(file_path_json, "r", encoding="utf-8") as f:
-            data = json.loads(f.read())
-            now_utc_in_s = datetime.datetime.now(datetime.timezone.utc).timestamp()
-            oldest_utc_in_s = data["list"][0]["dt"]
-            # Data is at least one day old
-            if now_utc_in_s - oldest_utc_in_s > 86400:
-                return False
-    return True
-
-
-if __name__ == "__main__":
+def main() -> None:
     """
     Main method which fetches first the API key for open weather map.
     Aks for city name input and outputs json format for a forcast of
     25 timestamps with at least 3hours apart.
     """
-
-    with open("api_key_open_weather_map.dat", "r", encoding="utf-8") as f:
-        api_key = f.read()
-    get_api_key()
     city = input("For which city should the forcast be generated for?\n-->")
-    print(f"Generating forecast for the city: {city}")
-    fetch_weather_data(fetch_location_coords(city), recent_data_available())
+    print(f"Generating forecast for the city: {city}", file=sys.stderr)
+    api_key = get_api_key()
+    location_coords = fetch_location_coords(city)
+    fetch_weather_data(api_key, location_coords)
+
+
+if __name__ == "__main__":
+    main()
