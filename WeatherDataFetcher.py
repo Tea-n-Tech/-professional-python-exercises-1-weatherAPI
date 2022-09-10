@@ -1,101 +1,166 @@
 import os
+import sys
 import datetime
 from typing import Tuple
 from geopy.geocoders import Nominatim
-import urllib.request, json
+import json
+import dotenv
+import requests
 
 
-class Weather_Forecast_Fetcher:
+def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
     """
-    This class provides 3 days of forecast from an open API for a given location
-    api_key_open_weather_map.dat should contain the api key
+    Fetches weather data for 25 timepoints from the url if no recent data is available
+    Stores the data in the folder where it is executed for future use.
+
+    Parameters:
+    ---------
+    location_coords : Tuple[int, int]
+      (lat,long) coordinates for the city entered
+    recent_data_available : bool
+      if true, use cached values (load from file)
+      if false, reload from url (requests)
+
+    """
+
+    # Check if fetch_data_from_url is necessary
+    file_path_json = os.getcwd() + "/data.json"
+    fetch_data_from_url = False
+    if not os.path.exists(file_path_json):
+        fetch_data_from_url = True
+    else:
+        with open(file_path_json, "r", encoding="utf-8") as f:
+            data = json.loads(f.read())
+        now_utc_in_s = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        oldest_utc_in_s = data["list"][0]["dt"]
+        # Data is more than day old - fetch_data_from_url required
+        seconds_in_one_day = 86400
+        if now_utc_in_s - oldest_utc_in_s > seconds_in_one_day:
+            fetch_data_from_url = True
+        # Different location is requested - fetch_data_from_url required
+        lat = data["city"]["coord"]["lat"]
+        lon = data["city"]["coord"]["lon"]
+        threshold = 0.001
+        if abs(lat - location_coords[0]) > threshold:
+            fetch_data_from_url = True
+        if abs(lon - location_coords[1]) > threshold:
+            fetch_data_from_url = True
+
+    if not os.path.exists(file_path_json) or fetch_data_from_url:
+        print("Getting new data from URL", file=sys.stderr)
+        response = requests.get(
+            f"https://api.openweathermap.org/data/2.5/forecast?",
+            params={
+                "lat": location_coords[0],
+                "lon": location_coords[1],
+                "dt": 25,
+                "units": "metric",
+                "appid": api_key,
+            },
+        )
+        data = response.json()
+        with open(file_path_json, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    else:
+        print("Getting new data local file", file=sys.stderr)
+        with open(file_path_json, "r", encoding="utf-8") as f:
+            data = json.loads(f.read())
+
+    time_to_max_temp = {}
+    time_to_min_temp = {}
+    for _, values in enumerate(data["list"]):
+        timestamp = datetime.datetime.utcfromtimestamp(values["dt"])
+        time_to_max_temp[str(timestamp)] = values["main"]["temp_max"]
+        time_to_min_temp[str(timestamp)] = values["main"]["temp_min"]
+
+    output = {}
+    print("Temperatures: ", file=sys.stderr)
+    output["max_temperatures"] = time_to_max_temp
+    output["min_temperatures"] = time_to_min_temp
+    print(output)
+
+
+def fetch_location_coords(city: str) -> Tuple[int, int]:
+    """
+    Gets the (lat, long) coordinates of a city name. If the city cannot be found
+    (e.g. invalid user input) the user is asked to input it again.
 
     Parameters:
     ----------
-    city : stry
-      City for which the forcast will be given
-    location_coords : Tuple
-      Latitude and Longitude Coordinates of the location of interest (self.city)
-    api_key : str
-      API Key used for OpenWeatherMap
-
-
-    """
-
-    location_coords: Tuple = (0, 0)
-    api_key: str = ""
-
-    def __init__(self, api_key: str):
-        """
-        Initializes the class
-        """
-        location_coords_fetcher = Location_Coords_Fetcher()
-        self.location_coords = location_coords_fetcher.location_coords
-        self.city = location_coords_fetcher.city
-        self.api_key: str = api_key
-
-    def fetch_weather_data(self, reload=False):
-        """
-        fetches data from the url if reload is active or no previous data was stored
-        """
-        request = (
-            f"https://api.openweathermap.org/data/2.5/"
-            + f"forecast?lat={self.location_coords[0]}&lon={self.location_coords[1]}"
-            + f"&dt=25&units=metric"
-            + f"&appid={self.api_key}"
-        )
-
-        file_path_json = os.getcwd() + "/data.json"
-        if reload or not os.path.exists(file_path_json):
-            with urllib.request.urlopen(request) as url:
-                data = json.loads(url.read().decode())
-                with open(file_path_json, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=4)
-        else:
-            with open(file_path_json, "r", encoding="utf-8") as f:
-                data = json.loads(f.read())
-
-        for _, values in enumerate(data["list"]):
-            timestamp_utc = values["dt"]
-            timestamp = datetime.datetime.utcfromtimestamp(timestamp_utc)
-            temp_min = values["main"]["temp_min"]
-            temp_max = values["main"]["temp_max"]
-            print(
-                f"On:{timestamp}, the min Temp is: {temp_min} and the max Temp is {temp_max}"
-            )
-
-
-class Location_Coords_Fetcher:
-    """
-    Class for getting location coordinates (long and lat) for a given city
-    Parameters
-    ---------
     city : str
-      Name of the city for the coordinates
-    location_coords : Tuple
-      (lat, long) for the self.city
+      Name of the city to get the coordinates for
+
+    Returns:
+    ----------
+    location_coords : Tuple[int:int]
+      (lat,long) coordinates for the city entered
     """
 
-    def __init__(self):
-        self.location_coords = self.fetch_location_coords()
+    geolocator = Nominatim(user_agent="MyApp")
+    location = geolocator.geocode(city)
+    if location is None:
+        print(
+            f"Sorry, your input for the city ({city}) was not found, try again:",
+            file=sys.stderr,
+        )
+        return fetch_location_coords(input("Where do you live?\n-->"))
+    location_coords = (location.latitude, location.longitude)
+    return location_coords
 
-    def fetch_location_coords(self) -> Tuple:
-        # ask user for city
-        self.city = input("Where do you live?\n-->")
-        # city = "Berlin"
-        geolocator = Nominatim(user_agent="MyApp")
-        location = geolocator.geocode(self.city)
-        if location is None:
-            print(
-                f"Sorry, your input for the city ({self.city}) was not found, try again:"
-            )
-            return self.fetch_location_coords()
-        location_coords = (location.latitude, location.longitude)
-        return location_coords
+
+def get_api_key() -> str:
+    """
+    Checks, if API Key is set as an environment variable. If not, the user is
+    asked to input it in the console. Length checks enabled for the API key. If
+    key has non-valid length (!=32) the user is asked again to enter a valid key.
+    The key is saved into a local .env file.
+
+    Returns:
+    api_key : str
+      API Key for the Open Weather Map
+
+    """
+
+    dotenv_file = dotenv.find_dotenv()
+    dotenv.load_dotenv(dotenv_file)
+
+    if "TNT_EX1_OPENWEATHERMAP_API_KEY" not in os.environ:
+        print(
+            "No API Key found in your environment variables. \nPlease look at https://openweathermap.org/api for getting an API key and enter it in the following line:",
+            file=sys.stderr,
+        )
+        os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"] = input(
+            "Please enter your API Key now: \n-->"
+        ).strip()
+    api_key = os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"]
+    if len(api_key) != 32:
+        print(
+            f"Wrong sized API Key inputted (correct length: 32), key found: {api_key}, \nplease look at https://openweathermap.org/api for getting an API key and enter it in the following line:",
+            file=sys.stderr,
+        )
+        os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"] = input(
+            "Please enter your API Key now:\n-->"
+        ).strip()
+        return get_api_key()
+
+    dotenv.set_key(
+        dotenv_file, "TNT_EX1_OPENWEATHERMAP_API_KEY", api_key
+    )  # save the API key to .env file
+    return api_key
+
+
+def main() -> None:
+    """
+    Main method which fetches first the API key for open weather map.
+    Aks for city name input and outputs json format for a forcast of
+    25 timestamps with at least 3hours apart.
+    """
+    city = input("For which city should the forcast be generated for?\n-->")
+    print(f"Generating forecast for the city: {city}", file=sys.stderr)
+    api_key = get_api_key()
+    location_coords = fetch_location_coords(city)
+    fetch_weather_data(api_key, location_coords)
 
 
 if __name__ == "__main__":
-    with open("api_key_open_weather_map.dat", "r", encoding="utf-8") as f:
-        api_key = f.read()
-    forcaster = Weather_Forecast_Fetcher(api_key)
-    forcaster.fetch_weather_data(reload=True)
+    main()
