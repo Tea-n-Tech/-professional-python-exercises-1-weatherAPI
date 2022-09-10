@@ -15,13 +15,12 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
 
     Parameters:
     ---------
-    location_coords : Tuple[int:int]
+    location_coords : Tuple[int, int]
       (lat,long) coordinates for the city entered
     recent_data_available : bool
       if true, use cached values (load from file)
       if false, reload from url (requests)
 
-    Returns: None
     """
 
     # Check if fetch_data_from_url is necessary
