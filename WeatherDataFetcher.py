@@ -92,7 +92,7 @@ def fetch_location_coords(city: str) -> Tuple[int, int]:
 
     Returns:
     ----------
-    location_coords : Tuple[int:int]
+    location_coords : Tuple[int,int]
       (lat,long) coordinates for the city entered
     """
 
