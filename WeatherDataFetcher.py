@@ -15,17 +15,16 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
 
     Parameters:
     ---------
-    location_coords : Tuple[int:int]
+    location_coords : Tuple[int, int]
       (lat,long) coordinates for the city entered
     recent_data_available : bool
       if true, use cached values (load from file)
       if false, reload from url (requests)
 
-    Returns: None
     """
 
     response = requests.get(
-        f"https://api.openweathermap.org/data/2.5/forecast?",
+        f"https://api.openweathermap.org/data/2.5/forecast",
         params={
             "lat": location_coords[0],
             "lon": location_coords[1],
