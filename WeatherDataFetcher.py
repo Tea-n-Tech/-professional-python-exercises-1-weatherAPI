@@ -24,17 +24,6 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
     Returns: None
     """
 
-    response = requests.get(
-        f"https://api.openweathermap.org/data/2.5/forecast?",
-        params={
-            "lat": location_coords[0],
-            "lon": location_coords[1],
-            "dt": 25,
-            "units": "metric",
-            "appid": api_key,
-        },
-    )
-
     # Check if fetch_data_from_url is necessary
     file_path_json = os.getcwd() + "/data.json"
     fetch_data_from_url = False
@@ -43,22 +32,33 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
     else:
         with open(file_path_json, "r", encoding="utf-8") as f:
             data = json.loads(f.read())
-            now_utc_in_s = datetime.datetime.now(datetime.timezone.utc).timestamp()
-            oldest_utc_in_s = data["list"][0]["dt"]
-            # Data is more than day old - fetch_data_from_url required
-            if now_utc_in_s - oldest_utc_in_s > 86400:
-                fetch_data_from_url = True
-            # Different location is requested - fetch_data_from_url required
-            lat = data["city"]["coord"]["lat"]
-            lon = data["city"]["coord"]["lon"]
-            threshold = 0.001
-            if abs(lat - location_coords[0]) > threshold:
-                fetch_data_from_url = True
-            if abs(lon - location_coords[1]) > threshold:
-                fetch_data_from_url = True
+        now_utc_in_s = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        oldest_utc_in_s = data["list"][0]["dt"]
+        # Data is more than day old - fetch_data_from_url required
+        seconds_in_one_day = 86400
+        if now_utc_in_s - oldest_utc_in_s > seconds_in_one_day:
+            fetch_data_from_url = True
+        # Different location is requested - fetch_data_from_url required
+        lat = data["city"]["coord"]["lat"]
+        lon = data["city"]["coord"]["lon"]
+        threshold = 0.001
+        if abs(lat - location_coords[0]) > threshold:
+            fetch_data_from_url = True
+        if abs(lon - location_coords[1]) > threshold:
+            fetch_data_from_url = True
 
     if not os.path.exists(file_path_json) or fetch_data_from_url:
         print("Getting new data from URL", file=sys.stderr)
+        response = requests.get(
+            f"https://api.openweathermap.org/data/2.5/forecast?",
+            params={
+                "lat": location_coords[0],
+                "lon": location_coords[1],
+                "dt": 25,
+                "units": "metric",
+                "appid": api_key,
+            },
+        )
         data = response.json()
         with open(file_path_json, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
@@ -83,8 +83,9 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
 
 def fetch_location_coords(city: str) -> Tuple[int, int]:
     """
-    Gets the (lat,long) coordinates of a city name. If the city cannot be found
+    Gets the (lat, long) coordinates of a city name. If the city cannot be found
     (e.g. invalid user input) the user is asked to input it again.
+
     Parameters:
     ----------
     city : str
