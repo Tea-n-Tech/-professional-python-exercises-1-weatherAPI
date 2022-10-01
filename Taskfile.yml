@@ -6,6 +6,10 @@ vars:
   GREETING: Hello, World!
 
 tasks:
+  install:
+    desc: Installs the dependencies.
+    cmds:
+      - poetry install
   lint:
     desc: Lints the code and reports on issues.
     cmds:
