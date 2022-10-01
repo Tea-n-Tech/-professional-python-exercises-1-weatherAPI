@@ -2,10 +2,10 @@ import os
 import sys
 import datetime
 from typing import Tuple
-from geopy.geocoders import Nominatim
 import json
-import dotenv
 import requests
+import dotenv
+from geopy.geocoders import Nominatim
 
 
 def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
@@ -29,8 +29,8 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
     if not os.path.exists(file_path_json):
         fetch_data_from_url = True
     else:
-        with open(file_path_json, "r", encoding="utf-8") as f:
-            data = json.loads(f.read())
+        with open(file_path_json, "r", encoding="utf-8") as file:
+            data = json.loads(file.read())
         now_utc_in_s = datetime.datetime.now(datetime.timezone.utc).timestamp()
         oldest_utc_in_s = data["list"][0]["dt"]
         # Data is more than day old - fetch_data_from_url required
@@ -49,7 +49,7 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
     if not os.path.exists(file_path_json) or fetch_data_from_url:
         print("Getting new data from URL", file=sys.stderr)
         response = requests.get(
-            f"https://api.openweathermap.org/data/2.5/forecast?",
+            "https://api.openweathermap.org/data/2.5/forecast",
             params={
                 "lat": location_coords[0],
                 "lon": location_coords[1],
@@ -57,14 +57,15 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
                 "units": "metric",
                 "appid": api_key,
             },
+            timeout=15,
         )
         data = response.json()
-        with open(file_path_json, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+        with open(file_path_json, "w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=4)
     else:
         print("Getting new data local file", file=sys.stderr)
-        with open(file_path_json, "r", encoding="utf-8") as f:
-            data = json.loads(f.read())
+        with open(file_path_json, "r", encoding="utf-8") as file:
+            data = json.loads(file.read())
 
     time_to_max_temp = {}
     time_to_min_temp = {}
@@ -126,7 +127,9 @@ def get_api_key() -> str:
 
     if "TNT_EX1_OPENWEATHERMAP_API_KEY" not in os.environ:
         print(
-            "No API Key found in your environment variables. \nPlease look at https://openweathermap.org/api for getting an API key and enter it in the following line:",
+            "No API Key found in your environment variables. \nPlease look at "
+            "https://openweathermap.org/api for getting an API key and enter it "
+            "in the following line:",
             file=sys.stderr,
         )
         os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"] = input(
@@ -135,7 +138,9 @@ def get_api_key() -> str:
     api_key = os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"]
     if len(api_key) != 32:
         print(
-            f"Wrong sized API Key inputted (correct length: 32), key found: {api_key}, \nplease look at https://openweathermap.org/api for getting an API key and enter it in the following line:",
+            f"Wrong sized API Key inputted (correct length: 32), key found: {api_key},"
+            "\nplease look at https://openweathermap.org/api for getting an API key and"
+            "enter it in the following line:",
             file=sys.stderr,
         )
         os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"] = input(

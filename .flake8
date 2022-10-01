@@ -1,0 +1,5 @@
+[flake8]
+# I have no clue why this is 10, maybe I ought to look it up
+max-complexity = 10
+# We allow longer lines since 80 is quite short
+max-line-length = 100

@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "professional-python-exercises-1-weatherapi"
+version = "0.1.0"
+description = "This is an exercise from the professional python course!"
+authors = ["Manuel <manuel.ramsaier89@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+geopy = "^2.2.0"
+requests = "^2.28.1"
+python-dotenv = "^0.21.0"
+
+[tool.poetry.dev-dependencies]
+flake9 = "^3.8.3"
+pylint = "^2.15.2"
+black = "^22.8.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    # Disable missing module docstring since the information
+    # regarding functionality is provided with more than enough
+    # detail by the functions themselves
+    "missing-module-docstring",
+    "too-many-locals"
+]
+
+[tool.flake8]
+# I have no clue why this is 10, maybe I ought to look it up
+max-complexity = 10
+# We allow longer lines since 80 is quite short
+max-line-length = 100
+
+[tool.black]
+line-length=100
