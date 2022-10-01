@@ -1,0 +1,23 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  lint:
+    desc: Lints the code and reports on issues.
+    cmds:
+      - poetry run black --check weather_data_fetcher.py
+      - |
+        poetry run flake8 weather_data_fetcher.py \
+          --show-source \
+          --statistics \
+          --count
+      - poetry run pylint weather_data_fetcher.py
+
+  run:
+    desc: Run the Weather Data Fetcher
+    cmds: 
+      - poetry run python weather_data_fetcher.py
