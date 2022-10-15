@@ -52,5 +52,6 @@ class TestWeatherDataFetcher:
                 "sunset": 1665850372,
             },
         }
-        fetch_weather_data(get_api_key(), (52.520008, 13.404954))
+        get_api_key()
+        fetch_weather_data(os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"], (52.520008, 13.404954))
         assert request_mock.called
