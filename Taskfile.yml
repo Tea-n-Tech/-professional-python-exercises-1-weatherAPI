@@ -25,3 +25,12 @@ tasks:
     desc: Run the Weather Data Fetcher
     cmds: 
       - poetry run python weather_data_fetcher.py
+
+  test:
+    desc: Runs tests on the code
+    cmds:
+      - >
+        poetry run pytest
+        -s
+        --cov=.
+        --cov-report=html
