@@ -31,5 +31,6 @@ tasks:
     cmds:
       - >
         poetry run pytest
+        -s
         --cov=.
         --cov-report=html
