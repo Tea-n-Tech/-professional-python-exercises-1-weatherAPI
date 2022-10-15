@@ -8,7 +8,7 @@ import dotenv
 from geopy.geocoders import Nominatim
 
 
-def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
+def fetch_weather_data(api_key: str, location_coords: Tuple[float, float]) -> None:
     """
     Fetches weather data for 25 timepoints from the url if no recent data is available
     Stores the data in the folder where it is executed for future use.
@@ -47,19 +47,7 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
             fetch_data_from_url = True
 
     if not os.path.exists(file_path_json) or fetch_data_from_url:
-        print("Getting new data from URL", file=sys.stderr)
-        response = requests.get(
-            "https://api.openweathermap.org/data/2.5/forecast",
-            params={
-                "lat": location_coords[0],
-                "lon": location_coords[1],
-                "dt": 25,
-                "units": "metric",
-                "appid": api_key,
-            },
-            timeout=15,
-        )
-        data = response.json()
+        data = fetch_new_data(api_key, location_coords)
         with open(file_path_json, "w", encoding="utf-8") as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
     else:
@@ -79,6 +67,25 @@ def fetch_weather_data(api_key: str, location_coords: Tuple[int, int]) -> None:
     output["max_temperatures"] = time_to_max_temp
     output["min_temperatures"] = time_to_min_temp
     print(output)
+
+
+def fetch_new_data(api_key: str, location_coords: Tuple[float, float]) -> json:
+    """
+    Uses the request module to fetch new data
+    """
+    print("Getting new data from URL", file=sys.stderr)
+    response = requests.get(
+        "https://api.openweathermap.org/data/2.5/forecast",
+        params={
+            "lat": location_coords[0],
+            "lon": location_coords[1],
+            "dt": 25,
+            "units": "metric",
+            "appid": api_key,
+        },
+        timeout=15,
+    )
+    return response.json()
 
 
 def fetch_location_coords(city: str) -> Tuple[int, int]:

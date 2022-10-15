@@ -42,3 +42,10 @@ jobs:
       - name: Lint code
         run: |
           ./bin/task lint
+
+      # Testing
+      - name: Test code
+        env:
+          TNT_EX1_OPENWEATHERMAP_API_KEY: ${{ secrets.TNT_EX1_OPENWEATHERMAP_API_KEY}}
+        run:
+          ./bin/task test
