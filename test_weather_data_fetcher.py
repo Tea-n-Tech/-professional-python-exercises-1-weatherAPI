@@ -1,4 +1,5 @@
 import os
+import dotenv
 from unittest import mock
 
 from weather_data_fetcher import fetch_location_coords, fetch_weather_data, get_api_key
@@ -52,6 +53,9 @@ class TestWeatherDataFetcher:
                 "sunset": 1665850372,
             },
         }
-        get_api_key()
+        if "TNT_EX1_OPENWEATHERMAP_API_KEY" not in os.environ:
+            dotenv_file = dotenv.find_dotenv()
+            dotenv.load_dotenv(dotenv_file)
+
         fetch_weather_data(os.environ["TNT_EX1_OPENWEATHERMAP_API_KEY"], (52.520008, 13.404954))
         assert request_mock.called
